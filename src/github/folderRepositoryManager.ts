@@ -162,6 +162,8 @@ export class FolderRepositoryManager implements vscode.Disposable {
 			}),
 		);
 
+		this._subs.push(_credentialStore.onDidInitialize(() => this.updateRepositories()));
+
 		this.setUpCompletionItemProvider();
 
 		this.cleanStoredRepoState();
@@ -466,6 +468,19 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	get credentialStore(): CredentialStore {
 		return this._credentialStore;
+	}
+
+	public async loginAndUpdate() {
+		if (!this._credentialStore.isAnyAuthenticated()) {
+			const waitForRepos = new Promise<void>(c => {
+				const onReposChange = this.onDidChangeRepositories(() => {
+					onReposChange.dispose();
+					c();
+				});
+			});
+			await this._credentialStore.login(AuthProvider.github);
+			await waitForRepos;
+		}
 	}
 
 	private async getActiveRemotes(): Promise<Remote[]> {
@@ -1041,22 +1056,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 		 */
 		const templatesPattern1 = await vscode.workspace.findFiles(
 			new vscode.RelativePattern(
-				this._repository.rootUri.path,
+				this._repository.rootUri,
 				'{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
 			),
 		);
 		const templatesPattern2 = await vscode.workspace.findFiles(
 			new vscode.RelativePattern(
-				this._repository.rootUri.path,
+				this._repository.rootUri,
 				'{docs,.github}/{pull_request_template,PULL_REQUEST_TEMPLATE}.md',
 			),
 		);
 
 		const templatesPattern3 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri.path, 'PULL_REQUEST_TEMPLATE/*.md'),
+			new vscode.RelativePattern(this._repository.rootUri, 'PULL_REQUEST_TEMPLATE/*.md'),
 		);
 		const templatesPattern4 = await vscode.workspace.findFiles(
-			new vscode.RelativePattern(this._repository.rootUri.path, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'),
+			new vscode.RelativePattern(this._repository.rootUri, '{docs,.github}/PULL_REQUEST_TEMPLATE/*.md'),
 		);
 
 		return [...templatesPattern1, ...templatesPattern2, ...templatesPattern3, ...templatesPattern4];
@@ -1804,6 +1819,22 @@ export class FolderRepositoryManager implements vscode.Disposable {
 
 	async checkout(branchName: string): Promise<void> {
 		return this.repository.checkout(branchName);
+	}
+
+	async checkoutById(githubRepo: GitHubRepository, id: number): Promise<void> {
+		const pullRequest = await githubRepo.getPullRequest(id);
+		if (pullRequest) {
+			try {
+				await this.fetchAndCheckout(pullRequest);
+			} catch (e) {
+				Logger.appendLine(e.stderr, 'FolderRepositoryManager');
+				if ((e.stderr as string).startsWith('fatal: couldn\'t find remote ref')) {
+					vscode.window.showErrorMessage(`The branch for request number ${id} has been deleted from ${githubRepo.remote.owner}/${githubRepo.remote.owner}`);
+				}
+			}
+		} else {
+			vscode.window.showErrorMessage(`Pull request number ${id} does not exist in ${githubRepo.remote.owner}/${githubRepo.remote.owner}`);
+		}
 	}
 
 	public async checkoutDefaultBranch(branch: string): Promise<void> {

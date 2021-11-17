@@ -10,12 +10,14 @@
 	"bugs": {
 		"url": "https://github.com/Microsoft/vscode-pull-request-github/issues"
 	},
-	"enableProposedApi": true,
+	"enabledApiProposals": [
+		"tokenInformation"
+	],
 	"preview": true,
-	"version": "0.31.1",
+	"version": "0.32.0",
 	"publisher": "GitHub",
 	"engines": {
-		"vscode": "^1.60.0"
+		"vscode": "^1.63.0"
 	},
 	"categories": [
 		"Other"
@@ -324,6 +326,10 @@
 						{
 							"label": "Created Issues",
 							"query": "author:${user} state:open repo:${owner}/${repository} sort:created-desc"
+						},
+						{
+							"label": "Recent Issues",
+							"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 						}
 					]
 				},
@@ -404,7 +410,7 @@
 				{
 					"id": "github:activePullRequest:welcome",
 					"name": "Active Pull Request",
-					"when": "!github:initialized && github:focusedReview"
+					"when": "!github:stateValidated && github:focusedReview"
 				}
 			]
 		},
@@ -501,13 +507,20 @@
 				"category": "GitHub Pull Requests"
 			},
 			{
+				"command": "pr.checkoutByNumber",
+				"title": "Checkout Pull Request by Number",
+				"category": "GitHub Pull Requests",
+				"icon": "$(symbol-numeric)"
+			},
+			{
 				"command": "review.openFile",
 				"title": "Open File",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "review.suggestDiff",
-				"title": "Suggest Edit"
+				"title": "Suggest Edit",
+				"category": "GitHub Pull Requests"
 			},
 			{
 				"command": "pr.refreshList",
@@ -812,7 +825,7 @@
 			},
 			{
 				"view": "github:activePullRequest:welcome",
-				"when": "!github:initialized",
+				"when": "!github:stateValidated",
 				"contents": "Loading..."
 			}
 		],
@@ -1066,14 +1079,19 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "pr.checkoutByNumber",
+					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
+					"group": "navigation@2"
+				},
+				{
 					"command": "pr.configurePRViewlet",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view =~ /(pr|issues):github/",
-					"group": "navigation@3"
+					"group": "navigation@4"
 				},
 				{
 					"command": "pr.refreshList",
 					"when": "gitHubOpenRepositoryCount != 0 && github:initialized && view == pr:github",
-					"group": "navigation@2"
+					"group": "navigation@3"
 				},
 				{
 					"command": "pr.refreshChanges",

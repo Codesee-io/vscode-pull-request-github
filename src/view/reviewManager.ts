@@ -61,7 +61,7 @@ export class ReviewManager {
 	 * state update, once review mode has been entered. Used to disambiguate
 	 * explicit user action from something like reloading on an existing PR branch.
 	 */
-	private justSwitchedToRevieMode: boolean = false;
+	private justSwitchedToReviewMode: boolean = false;
 
 	public get switchingToReviewMode(): boolean {
 		return this._switchingToReviewMode;
@@ -235,16 +235,21 @@ export class ReviewManager {
 		}
 		if (!this._validateStatusInProgress) {
 			Logger.appendLine('Review> Validate state in progress');
-			this._validateStatusInProgress = this.validateState(silent, openDiff);
+			this._validateStatusInProgress = this.validateStatueAndSetContext(silent, openDiff);
 			return this._validateStatusInProgress;
 		} else {
 			Logger.appendLine('Review> Queuing additional validate state');
 			this._validateStatusInProgress = this._validateStatusInProgress.then(async _ => {
-				return await this.validateState(silent, openDiff);
+				return await this.validateStatueAndSetContext(silent, openDiff);
 			});
 
 			return this._validateStatusInProgress;
 		}
+	}
+
+	private async validateStatueAndSetContext(silent: boolean, openDiff: boolean) {
+		await this.validateState(silent, openDiff);
+		await vscode.commands.executeCommand('setContext', 'github:stateValidated', true);
 	}
 
 	private async validateState(silent: boolean, openDiff: boolean) {
@@ -314,6 +319,12 @@ export class ReviewManager {
 			return;
 		}
 
+		if(pr.isClosed){
+			this.clear(true);
+			Logger.appendLine('Review> This PR is closed');
+			return;
+		}
+
 		this._folderRepoManager.activePullRequest = pr;
 		this._lastCommitSha = pr.head.sha;
 
@@ -329,9 +340,9 @@ export class ReviewManager {
 			pr,
 			this._localFileChanges,
 			this._comments,
-			this.justSwitchedToRevieMode,
+			this.justSwitchedToReviewMode,
 		);
-		this.justSwitchedToRevieMode = false;
+		this.justSwitchedToReviewMode = false;
 
 		Logger.appendLine(`Review> register comments provider`);
 		await this.registerCommentController();
@@ -647,7 +658,7 @@ export class ReviewManager {
 			Logger.appendLine(`Review> switch to Pull Request #${pr.number} - done`, ReviewManager.ID);
 		} finally {
 			this.switchingToReviewMode = false;
-			this.justSwitchedToRevieMode = true;
+			this.justSwitchedToReviewMode = true;
 			this.statusBarItem.text = `Pull Request #${pr.number}`;
 			this.statusBarItem.command = undefined;
 			this.statusBarItem.show();
@@ -856,7 +867,7 @@ export class ReviewManager {
 
 	private async updateFocusedViewMode(): Promise<void> {
 		const focusedSetting = vscode.workspace.getConfiguration(SETTINGS_NAMESPACE).get('focusedMode');
-		if (focusedSetting && this._folderRepoManager.activePullRequest) {
+		if (focusedSetting) {
 			vscode.commands.executeCommand('setContext', FOCUS_REVIEW_MODE, true);
 			await this._context.workspaceState.update(FOCUS_REVIEW_MODE, true);
 		} else {

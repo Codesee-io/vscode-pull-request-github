@@ -480,7 +480,7 @@ export async function createGithubPermalink(
 		new Promise<Remote | undefined>(resolve => {
 			setTimeout(() => {
 				resolve(fallbackUpstream);
-			}, 2000);
+			}, 1500);
 		}),
 	]) : await fallbackUpstream;
 
@@ -488,7 +488,7 @@ export async function createGithubPermalink(
 		// Check fallback
 		upstream = await fallbackUpstream;
 		if (!upstream || !upstream.fetchUrl) {
-			return { permalink: undefined, error: 'There is no suitable remote.', originalFile: uri };
+			return { permalink: undefined, error: 'The selection may not exist on any remote.', originalFile: uri };
 		}
 	}
 	const pathSegment = uri.path.substring(repository.rootUri.path.length);
@@ -511,7 +511,7 @@ export async function createGithubPermalink(
 }
 
 export function sanitizeIssueTitle(title: string): string {
-	const regex = /[~^:;'".,~#?%*[\]@\\{}]|\/\//g;
+	const regex = /[~^:;'".,~#?%*[\]@\\{}()]|\/\//g;
 
 	return title.replace(regex, '').trim().replace(/\s+/g, '-');
 }
